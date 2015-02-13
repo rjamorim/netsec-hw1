@@ -1,0 +1,14 @@
+Network Security assignment 1
+Roberto Amorim - rja2139
+
+* The public and private keys were generated with OpenSSL:
+openssl genrsa -out privkey.pem 2048
+openssl rsa -in privkey.pem -pubout > pubkey.pem
+
+
+
+References used for this assignment:
+http://stackoverflow.com/questions/12123568/python-argparse-required-true-but-version-functionality
+https://www.dlitz.net/software/pycrypto/api/current/
+http://programmerin.blogspot.com/2011/08/python-padding-with-pkcs7.html
+
