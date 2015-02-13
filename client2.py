@@ -43,14 +43,14 @@ if not os.path.isfile(args.pubKey):
 
 # All input validated, we can start working!
 
-## First I receive the signature from the server
+## First I receive the signature and the password from the server
 try:
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     sock.connect((args.serverIP, port))
 except:
     print "Error connecting to the remote server. Is it running? Are the IP and port you provided correct?"
     exit(1)
-signature = sock.recv(1024)
+sign = sock.recv(1024)
 print "Signature received from server"
 sock.close()
 
@@ -72,11 +72,9 @@ sock.close()
 file.close()
 
 #Got the file and signature, now I have to start processing both.
-file = open("client2data.enc", "rb")
 ## First, extract the encrypted password
-temp = file.read()
-cryptpwd = temp[:256]
-ciphertext = temp[256:]
+cryptpwd = sign[:256]
+signature = sign[256:]
 
 ## Let's decrypt the password
 try:
@@ -92,14 +90,19 @@ if not keypriv.has_private():
     print "You must provide a private RSA key for decrypting!"
     exit(1)
 pwd = keypriv.decrypt(cryptpwd)
-print pwd
 
 ## Now let's decrypt the ciphertext
+file = open("client2data.enc", "rb")
+ciphertext = file.read()
 ### First we extract the IV
 iv = ciphertext[:AES.block_size]
 ### Then we decrypt
-cipher = AES.new(pwd, AES.MODE_CBC, iv)
-text = cipher.decrypt(ciphertext[AES.block_size:])
+try:
+    cipher = AES.new(pwd, AES.MODE_CBC, iv)
+    text = cipher.decrypt(ciphertext[AES.block_size:])
+except ValueError:
+    print "Invalid encrypted file size. There was either a transfer problem or the file has been tampered with."
+    exit(1)
 
 file.close()
 os.remove("client2data.enc") # No need for the ciphertext anymore

@@ -121,10 +121,9 @@ def encrypt_file(file_name, pwd, priv, pub):
         print "File can not be read! You must provide a file for which you have read permissions"
         exit (1)
     f.close()
-    enc = encrypt(plaintext, pwd)
+    ciphertext = encrypt(plaintext, pwd)
     signature = sign(plaintext, priv)
     cryptpwd = pwdcrypt(pwd, pub)
-    ciphertext = cryptpwd + enc
     try:
         with open(file_name + ".enc", 'wb') as f:
             f.write(ciphertext)
@@ -133,7 +132,7 @@ def encrypt_file(file_name, pwd, priv, pub):
         print "Also, you need as much available disk space as the size of the decrypted file"
         exit (1)
 
-    return str(signature)
+    return cryptpwd + str(signature)
 
 signature = encrypt_file(args.srcfile,args.pwd,args.privKey,args.pubKey)
 ciphertext = args.srcfile + ".enc"
@@ -142,7 +141,7 @@ ciphertext = args.srcfile + ".enc"
 #= been appended, now I can send everything to the server =#
 sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
-#First I send the RSA signature
+#First I send the RSA signature and the encrypted password
 try:
     sock.connect((args.serverIP, port))
 except:
@@ -154,7 +153,7 @@ sock.close()
 print "Signature sent to server"
 
 sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-#Then I send the file
+#Then I send the encrypted file
 try:
     sock.connect((args.serverIP, port))
 except:
