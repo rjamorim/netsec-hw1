@@ -12,7 +12,8 @@ parser = argparse.ArgumentParser(description='Encrypts a file and sends it to a 
 parser.add_argument('--server', dest = 'serverIP', required = True, help = 'Server IP Address')
 parser.add_argument('--port', dest = 'serverPort', required = True, help='Server Port')
 parser.add_argument('--file', dest = 'srcfile', required = True, help = 'Source file to be encrypted and sent')
-parser.add_argument('--key', dest = 'rsaKey', required = True, help = 'RSA key for encryption')
+parser.add_argument('--privkey', dest = 'privKey', required = True, help = 'Client 1 RSA private key')
+parser.add_argument('--pubkey', dest = 'pubKey', required = True, help = 'Client 2 RSA public key')
 parser.add_argument('--password', dest = 'pwd', required = True, help = 'Client password')
 
 args = parser.parse_args()
@@ -39,8 +40,12 @@ if not os.path.isfile(args.srcfile):
     print "ERROR: Invalid file name for source file"
     exit(1)
 
-if not os.path.isfile(args.rsaKey):
-    print "ERROR: Invalid file name for RSA key"
+if not os.path.isfile(args.privKey):
+    print "ERROR: Invalid file name for private RSA key"
+    exit(1)
+
+if not os.path.isfile(args.pubKey):
+    print "ERROR: Invalid file name for public RSA key"
     exit(1)
 
 #Here I validate the password (length only)
@@ -54,15 +59,17 @@ if len(args.pwd) != 16:
 # The encryption and signing routines follow
 
 ## A routine to generate the signature
-def sign(message, rsa):
+def sign(message, priv, pub, pwd):
     #First we hash with SHA256
     hashed = SHA256.new()
     hashed.update(message)
 
     #Now we encrypt the HASH with RSA
     try:
-        with open(rsa,'r') as f:
-            key = RSA.importKey(f.read())
+        with open(priv,'r') as f:
+            keypriv = RSA.importKey(f.read())
+        with open(pub,'r') as f:
+            keypub = RSA.importKey(f.read())
     except IOError:
         print "RSA key file can not be read! You must provide a file for which you have read permissions"
         exit (1)
@@ -70,11 +77,14 @@ def sign(message, rsa):
         print "The file you provided seems to be an invalid RSA key"
         exit (1)
     #We verify if the key imported is the private key
-    if not key.has_private():
+    if not keypriv.has_private():
         print "You must provide a private RSA key for signing!"
         exit (1)
-    signature = key.encrypt(hashed.hexdigest(), 0)[0] #Only the first item returned matters
-    return signature
+    signature = keypriv.encrypt(hashed.hexdigest(), 0)[0] #Only the first item returned matters
+
+    #Finally, we encrypt the password with client 2 RSA
+    cryptpwd = keypub.encrypt(pwd, 0)[0]
+    return signature + cryptpwd
 
 ## A routine to pad the message so that its size becomes a multiple of block_size
 def pad(message):
@@ -92,7 +102,7 @@ def encrypt(message, pwd, key_size=256):
     cipher = AES.new(pwd, AES.MODE_CBC, iv)
     return iv + cipher.encrypt(message)
 
-def encrypt_file(file_name, pwd, rsa):
+def encrypt_file(file_name, pwd, priv, pub):
     try:
         with open(file_name, 'rb') as f:
             plaintext = f.read()
@@ -101,8 +111,8 @@ def encrypt_file(file_name, pwd, rsa):
         exit (1)
     f.close()
     enc = encrypt(plaintext, pwd)
-    signature = sign(plaintext, rsa)
-    cyphertext = enc + signature
+    trailing = sign(plaintext, priv, pub, pwd)
+    cyphertext = enc + trailing
     try:
         with open(file_name + ".enc", 'wb') as f:
             f.write(cyphertext)
@@ -111,9 +121,9 @@ def encrypt_file(file_name, pwd, rsa):
         print "Also, you need as much available disk space as the size of the decrypted file"
         exit (1)
 
-encrypt_file(args.srcfile,args.pwd,args.rsaKey)
+encrypt_file(args.srcfile,args.pwd,args.privKey,args.pubKey)
 cyphertext = args.srcfile + ".enc"
-#= The file has been encrypted, the IV has been prepended and the signature has =#
+#= The file has been encrypted, the IV has been prepended and the signature + password have =#
 #= been appended, now we send it to the server =#
 
 try:
@@ -125,8 +135,15 @@ except:
     exit(1)
 file = open(cyphertext, "rb")
 while True:
-    chunk = file.read(1024) #I read/send the file 1024 bytes at a time
-    if not chunk:
+    data = file.read(1024) #I read/send the file 1024 bytes at a time
+    if not data:
         break  # EOF
-    sock.sendall(chunk)
+    sock.send(data)
+file.close()
+print "Encrypted file sent to server!"
+#os.remove(cyphertext) #Client 1 supposedly does not need the encrypted file anymore
 sock.close()
+
+print "Client 1 completed all its tasks successfully. Exiting..."
+exit()
+

@@ -46,7 +46,7 @@ sock = socket.socket()
 try:
     sock.bind(("localhost", port1))
 except:
-    print "Error binding to the requested port. Do you have permission to bind to it?"
+    print "Error binding to the requested port " + str(port1) + ". Do you have permission to bind to it?"
     exit(1)
 
 sock.listen(5)
@@ -63,5 +63,40 @@ while True:
         print "Encrypted file arrived from client 1!"        
         break
     file.write(data)
+client1sock.close()
 sock.close()
 file.close()
+
+# We now have the encrypted file, so we send the file to client 2
+
+##Remember we have to send the actual file of a fake file depending on the server mode
+if args.mode == "t":
+    sending = "ServerTempFile"
+else:
+    sending = "serverdata"
+
+sock = socket.socket()
+try:
+    sock.bind(("localhost", port2))
+except:
+    print "Error binding to the requested port " + str(port2) + ". Do you have permission to bind to it?"
+    os.remove("ServerTempFile") #cleanup
+    exit(1)
+
+sock.listen(5)
+client2sock, client2addr = sock.accept()
+print "Client 2 connected from " + client2addr[0]
+file = open(sending, 'rb')
+while True:
+    data = file.read(1024) #I read/send the file 1024 bytes at a time
+    if not data:
+        break  # EOF
+    client2sock.send(data)
+sock.close()
+file.close()
+os.remove("ServerTempFile")
+client2sock.close()
+
+print "Server completed all its tasks successfully. Exiting..."
+exit()
+
