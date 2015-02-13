@@ -39,19 +39,25 @@ if args.mode != "t" and args.mode != "u":
     print "ERROR: the only acceptable values for mode are t and u"
     exit (1)
 
-## All input validated, we can start working!
+## All input validated, I can start working!
 
-# First we receive the encrypted file from client 1
+# First I receive the signature and encrypted file from client 1
 sock = socket.socket()
 try:
     sock.bind(("localhost", port1))
 except:
     print "Error binding to the requested port " + str(port1) + ". Do you have permission to bind to it?"
     exit(1)
-
 sock.listen(5)
+
+# The first connection contains the signature
 client1sock, client1addr = sock.accept()
 print "Client 1 connected from " + client1addr[0]
+signature = client1sock.recv(1024)
+print "Signature received from client 1"
+client1sock.close()
+
+client1sock, client1addr = sock.accept()
 try:
     file = open("ServerTempFile", 'wb')
 except IOError:
@@ -60,16 +66,15 @@ except IOError:
 while True:
     data = client1sock.recv(1024) # We get 1kb at a time
     if not data: # Until data stops arriving
-        print "Encrypted file arrived from client 1!"        
+        print "Encrypted file arrived from client 1"        
         break
     file.write(data)
 client1sock.close()
 sock.close()
 file.close()
 
-# We now have the encrypted file, so we send the file to client 2
-
-##Remember we have to send the actual file of a fake file depending on the server mode
+# I now have the encrypted file and the signature, so I send both to client 2
+##Remember I have to send the actual file or a fake file depending on the server mode
 if args.mode == "t":
     sending = "ServerTempFile"
 else:
@@ -82,10 +87,16 @@ except:
     print "Error binding to the requested port " + str(port2) + ". Do you have permission to bind to it?"
     os.remove("ServerTempFile") #cleanup
     exit(1)
-
 sock.listen(5)
+
+# First I send the signature
 client2sock, client2addr = sock.accept()
 print "Client 2 connected from " + client2addr[0]
+client2sock.send(signature)
+client2sock.close()
+
+# Then I send the file - the encrypted one, or the fake one
+client2sock, client2addr = sock.accept()
 file = open(sending, 'rb')
 while True:
     data = file.read(1024) #I read/send the file 1024 bytes at a time
@@ -93,6 +104,7 @@ while True:
         break  # EOF
     client2sock.send(data)
 sock.close()
+print "File " + sending + " sent to client 2"
 file.close()
 os.remove("ServerTempFile")
 client2sock.close()

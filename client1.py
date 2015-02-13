@@ -1,6 +1,7 @@
 import argparse
 import socket
 import os.path
+import time
 from Crypto.Cipher import AES
 from Crypto.Hash import SHA256
 from Crypto.PublicKey import RSA
@@ -58,8 +59,24 @@ if len(args.pwd) != 16:
 
 # The encryption and signing routines follow
 
+## A routine to encrypt the password
+def pwdcrypt(pwd, pub):
+     #Now we encrypt the HASH with RSA
+    try:
+        with open(pub,'r') as f:
+            keypub = RSA.importKey(f.read())
+    except IOError:
+        print "RSA public key file can not be read! You must provide a file for which you have read permissions"
+        exit (1)
+    except:
+        print "The file you provided seems to be an invalid RSA public key"
+        exit (1)
+
+    cryptpwd = keypub.encrypt(pwd, 0)[0]
+    return cryptpwd
+
 ## A routine to generate the signature
-def sign(message, priv, pub, pwd):
+def sign(message, priv):
     #First we hash with SHA256
     hashed = SHA256.new()
     hashed.update(message)
@@ -68,23 +85,19 @@ def sign(message, priv, pub, pwd):
     try:
         with open(priv,'r') as f:
             keypriv = RSA.importKey(f.read())
-        with open(pub,'r') as f:
-            keypub = RSA.importKey(f.read())
     except IOError:
-        print "RSA key file can not be read! You must provide a file for which you have read permissions"
+        print "RSA private key file can not be read! You must provide a file for which you have read permissions"
         exit (1)
     except:
-        print "The file you provided seems to be an invalid RSA key"
+        print "The file you provided seems to be an invalid RSA private key"
         exit (1)
     #We verify if the key imported is the private key
     if not keypriv.has_private():
         print "You must provide a private RSA key for signing!"
         exit (1)
-    signature = keypriv.encrypt(hashed.hexdigest(), 0)[0] #Only the first item returned matters
 
-    #Finally, we encrypt the password with client 2 RSA
-    cryptpwd = keypub.encrypt(pwd, 0)[0]
-    return signature + cryptpwd
+    signature = keypriv.sign(hashed.digest(), 0)[0] #Only the first item returned matters
+    return signature
 
 ## A routine to pad the message so that its size becomes a multiple of block_size
 def pad(message):
@@ -111,8 +124,9 @@ def encrypt_file(file_name, pwd, priv, pub):
         exit (1)
     f.close()
     enc = encrypt(plaintext, pwd)
-    trailing = sign(plaintext, priv, pub, pwd)
-    cyphertext = enc + trailing
+    signature = sign(plaintext, priv)
+    cryptpwd = pwdcrypt(pwd, pub)
+    cyphertext = enc + cryptpwd
     try:
         with open(file_name + ".enc", 'wb') as f:
             f.write(cyphertext)
@@ -121,17 +135,34 @@ def encrypt_file(file_name, pwd, priv, pub):
         print "Also, you need as much available disk space as the size of the decrypted file"
         exit (1)
 
-encrypt_file(args.srcfile,args.pwd,args.privKey,args.pubKey)
-cyphertext = args.srcfile + ".enc"
-#= The file has been encrypted, the IV has been prepended and the signature + password have =#
-#= been appended, now we send it to the server =#
+    return str(signature)
 
+signature = encrypt_file(args.srcfile,args.pwd,args.privKey,args.pubKey)
+cyphertext = args.srcfile + ".enc"
+
+#= The file has been encrypted, the IV has been prepended and the password has =#
+#= been appended, now I can send everything to the server =#
+sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+
+#First I send the RSA signature
 try:
-    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     sock.connect((args.serverIP, port))
 except:
     print "Error connecting to the remote server. Is it running? Are the IP and port you provided correct?"
     os.remove(cyphertext) #Some cleanup is adequate!
+    exit(1)
+sock.send(signature)
+sock.close()
+print "Signature sent to server"
+time.sleep(1)
+
+sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+#Then I send the file
+try:
+    sock.connect((args.serverIP, port))
+except:
+    print "Error connecting to the remote server. Is it running? Are the IP and port you provided correct?"
+    os.remove(cyphertext) 
     exit(1)
 file = open(cyphertext, "rb")
 while True:
@@ -140,7 +171,7 @@ while True:
         break  # EOF
     sock.send(data)
 file.close()
-print "Encrypted file sent to server!"
+print "Encrypted file sent to server"
 #os.remove(cyphertext) #Client 1 supposedly does not need the encrypted file anymore
 sock.close()
 
