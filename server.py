@@ -41,3 +41,27 @@ if args.mode != "t" and args.mode != "u":
 
 ## All input validated, we can start working!
 
+# First we receive the encrypted file from client 1
+sock = socket.socket()
+try:
+    sock.bind(("localhost", port1))
+except:
+    print "Error binding to the requested port. Do you have permission to bind to it?"
+    exit(1)
+
+sock.listen(5)
+client1sock, client1addr = sock.accept()
+print "Client 1 connected from " + client1addr[0]
+try:
+    file = open("ServerTempFile", 'wb')
+except IOError:
+    print "Could not write encrypted file to current folder. Please run the script from a folder you have write access to."
+    exit (1)
+while True:
+    data = client1sock.recv(1024) # We get 1kb at a time
+    if not data: # Until data stops arriving
+        print "Encrypted file arrived from client 1!"        
+        break
+    file.write(data)
+sock.close()
+file.close()
