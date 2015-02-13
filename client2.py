@@ -10,7 +10,7 @@ parser = argparse.ArgumentParser(description='Encrypts a file and sends it to a 
 
 parser.add_argument('--server', dest = 'serverIP', required = True, help = 'Server IP Address')
 parser.add_argument('--port', dest = 'serverPort', required = True, help='Server Port')
-parser.add_argument('--key', dest = 'privKey', required = True, help = 'Client 2 RSA private key')
+parser.add_argument('--privkey', dest = 'privKey', required = True, help = 'Client 2 RSA private key')
 parser.add_argument('--pubkey', dest = 'pubKey', required = True, help = 'Client 1 RSA public key')
 
 args = parser.parse_args()
@@ -41,47 +41,97 @@ if not os.path.isfile(args.pubKey):
     print "ERROR: Invalid file name for public RSA key"
     exit(1)
 
-## All input validated, we can start working!
+# All input validated, we can start working!
 
-# First we receive the encrypted file from the server
+## First I receive the signature from the server
 try:
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     sock.connect((args.serverIP, port))
 except:
     print "Error connecting to the remote server. Is it running? Are the IP and port you provided correct?"
     exit(1)
-file = open("client2data", "wb")
+signature = sock.recv(1024)
+print "Signature received from server"
+sock.close()
+
+## Then I receive the encrypted file
+try:
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    sock.connect((args.serverIP, port))
+except:
+    print "Error connecting to the remote server. Is it running? Are the IP and port you provided correct?"
+    exit(1)
+file = open("client2data.enc", "wb")
 while True:
     data = sock.recv(1024) # We get 1kb at a time
     if not data: # Until data stops arriving
-        print "Encrypted file arrived from server!"        
+        print "Encrypted file arrived from server"        
         break
     file.write(data)
 sock.close()
 file.close()
 
-##We got the file, now we have to start processing it.
-file = open("client2data", "rb")
-# First, extract the encrypted password and the signature
-cyphertext = file.read()
-cryptpwd = cyphertext[:256]
-temp = cyphertext[256:]
-signature = temp[:256]
-cyphertext = temp[256:]
+#Got the file and signature, now I have to start processing both.
+file = open("client2data.enc", "rb")
+## First, extract the encrypted password
+temp = file.read()
+cryptpwd = temp[:256]
+ciphertext = temp[256:]
 
+## Let's decrypt the password
 try:
-    with open(rsa,'r') as f:
-        key = RSA.importKey(f.read())
+    with open(args.privKey,'r') as f:
+        keypriv = RSA.importKey(f.read())
 except IOError:
     print "RSA key file can not be read! You must provide a file for which you have read permissions"
-    exit (1)
+    exit(1)
 except:
     print "The file you provided seems to be an invalid RSA key"
-    exit (1)
-    signature = key.encrypt(hashed.hexdigest(), 0)[0] #Only the first item returned matters
+    exit(1)
+if not keypriv.has_private():
+    print "You must provide a private RSA key for decrypting!"
+    exit(1)
+pwd = keypriv.decrypt(cryptpwd)
+print pwd
 
-    #Finally, we encrypt the password with RSA
-    cryptpwd = key.encrypt(pwd, 0)[0]
-    return signature + cryptpwd
+## Now let's decrypt the ciphertext
+### First we extract the IV
+iv = ciphertext[:AES.block_size]
+### Then we decrypt
+cipher = AES.new(pwd, AES.MODE_CBC, iv)
+text = cipher.decrypt(ciphertext[AES.block_size:])
 
+file.close()
+os.remove("client2data.enc") # No need for the ciphertext anymore
+
+### Let's not forget to remove the padding!
+pad = ord(text[-1])
+plaintext = text[:-pad]
+
+## Now, we validate the plaintext using the signature
+hashed = SHA256.new()
+hashed.update(plaintext)
+try:
+    with open(args.pubKey,'r') as f:
+        keypub = RSA.importKey(f.read())
+except IOError:
+    print "RSA key file can not be read! You must provide a file for which you have read permissions"
+    exit(1)
+except:
+    print "The file you provided seems to be an invalid RSA key"
+    exit(1)
+valid = keypub.verify(hashed.digest(), tuple([long(signature),0]))
+
+## Is it valid? Then we're done!
+if valid:
+    print "Verification Passed!"
+    try:
+        with open("client2data", 'wb') as f:
+            f.write(plaintext)
+    except IOError:
+        print "Could not write decrypted file to current folder. Please run the script from a folder you have write access to and with enough free space."
+        exit (1)
+    print "The plain text file has been saved with the filename: client2data"
+else:
+    print "Verification Failed!"
 

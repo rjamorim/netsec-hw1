@@ -103,11 +103,11 @@ while True:
     if not data:
         break  # EOF
     client2sock.send(data)
-sock.close()
 print "File " + sending + " sent to client 2"
 file.close()
 os.remove("ServerTempFile")
 client2sock.close()
+sock.close()
 
 print "Server completed all its tasks successfully. Exiting..."
 exit()

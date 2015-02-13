@@ -1,7 +1,6 @@
 import argparse
 import socket
 import os.path
-import time
 from Crypto.Cipher import AES
 from Crypto.Hash import SHA256
 from Crypto.PublicKey import RSA
@@ -61,16 +60,15 @@ if len(args.pwd) != 16:
 
 ## A routine to encrypt the password
 def pwdcrypt(pwd, pub):
-     #Now we encrypt the HASH with RSA
     try:
         with open(pub,'r') as f:
             keypub = RSA.importKey(f.read())
     except IOError:
         print "RSA public key file can not be read! You must provide a file for which you have read permissions"
-        exit (1)
+        exit(1)
     except:
         print "The file you provided seems to be an invalid RSA public key"
-        exit (1)
+        exit(1)
 
     cryptpwd = keypub.encrypt(pwd, 0)[0]
     return cryptpwd
@@ -87,15 +85,15 @@ def sign(message, priv):
             keypriv = RSA.importKey(f.read())
     except IOError:
         print "RSA private key file can not be read! You must provide a file for which you have read permissions"
-        exit (1)
+        exit(1)
     except:
         print "The file you provided seems to be an invalid RSA private key"
-        exit (1)
+        exit(1)
     #We verify if the key imported is the private key
     if not keypriv.has_private():
         print "You must provide a private RSA key for signing!"
-        exit (1)
-
+        exit(1)
+    
     signature = keypriv.sign(hashed.digest(), 0)[0] #Only the first item returned matters
     return signature
 
@@ -126,10 +124,10 @@ def encrypt_file(file_name, pwd, priv, pub):
     enc = encrypt(plaintext, pwd)
     signature = sign(plaintext, priv)
     cryptpwd = pwdcrypt(pwd, pub)
-    cyphertext = enc + cryptpwd
+    ciphertext = cryptpwd + enc
     try:
         with open(file_name + ".enc", 'wb') as f:
-            f.write(cyphertext)
+            f.write(ciphertext)
     except IOError:
         print "Could not write temporary encrypted file to current folder. Please run the script from a folder you have write access to."
         print "Also, you need as much available disk space as the size of the decrypted file"
@@ -138,7 +136,7 @@ def encrypt_file(file_name, pwd, priv, pub):
     return str(signature)
 
 signature = encrypt_file(args.srcfile,args.pwd,args.privKey,args.pubKey)
-cyphertext = args.srcfile + ".enc"
+ciphertext = args.srcfile + ".enc"
 
 #= The file has been encrypted, the IV has been prepended and the password has =#
 #= been appended, now I can send everything to the server =#
@@ -149,12 +147,11 @@ try:
     sock.connect((args.serverIP, port))
 except:
     print "Error connecting to the remote server. Is it running? Are the IP and port you provided correct?"
-    os.remove(cyphertext) #Some cleanup is adequate!
+    os.remove(ciphertext) #Some cleanup is adequate!
     exit(1)
 sock.send(signature)
 sock.close()
 print "Signature sent to server"
-time.sleep(1)
 
 sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 #Then I send the file
@@ -162,9 +159,9 @@ try:
     sock.connect((args.serverIP, port))
 except:
     print "Error connecting to the remote server. Is it running? Are the IP and port you provided correct?"
-    os.remove(cyphertext) 
+    os.remove(ciphertext) 
     exit(1)
-file = open(cyphertext, "rb")
+file = open(ciphertext, "rb")
 while True:
     data = file.read(1024) #I read/send the file 1024 bytes at a time
     if not data:
@@ -172,7 +169,7 @@ while True:
     sock.send(data)
 file.close()
 print "Encrypted file sent to server"
-#os.remove(cyphertext) #Client 1 supposedly does not need the encrypted file anymore
+os.remove(ciphertext) #Client 1 supposedly does not need the encrypted file anymore
 sock.close()
 
 print "Client 1 completed all its tasks successfully. Exiting..."

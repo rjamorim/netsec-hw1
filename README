@@ -3,6 +3,24 @@ Roberto Amorim - rja2139
 
 * The RSA keys were generated with OpenSSL:
 openssl genrsa -out privkey1.pem 2048
+openssl rsa -in privkey1.pem -pubout > pubkey1.pem
+
+* The scripts were developed and tested at CLIC machines, so there should be no issues
+related to incompatibility or library versions
+
+* The test files (temp.data and serverdata) were generated using dd:
+dd if=/dev/urandom of=temp.data count=2048
+
+* This is a suggested way to run the scripts:
+** Fist the server
+python server.py --port1 2663 --port2 2664 --mode t
+** Then client1
+python client1.py --server 127.0.0.1 --port 2663 --file temp.data --privkey privkey1.pem --pubkey pubkey2.pem --password 4308gfh^\{}\(\)ews7
+** Then client2
+python client2.py --server 127.0.0.1 --port 2664 --privkey privkey2.pem --pubkey pubkey1.pem
+** All scripts can be run as 
+python <script>.py -h
+for an explanation on each script's functionality and what each command line switch means
 
 *** ATTENTION ***
 I have not programmed the server to be multithreaded. It runs on a sequential thread: first
@@ -15,5 +33,6 @@ listening at client 2's port.
 References used for this assignment:
 http://stackoverflow.com/questions/12123568/python-argparse-required-true-but-version-functionality
 https://www.dlitz.net/software/pycrypto/api/current/
+https://docs.python.org/2/howto/sockets.html
 http://programmerin.blogspot.com/2011/08/python-padding-with-pkcs7.html
 
