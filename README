@@ -1,11 +1,16 @@
 Network Security assignment 1
 Roberto Amorim - rja2139
 
-* The public and private keys were generated with OpenSSL:
-openssl genrsa -out privkey.pem 2048
-openssl rsa -in privkey.pem -pubout > pubkey.pem
+* The RSA keys were generated with OpenSSL:
+openssl genrsa -out privkey1.pem 2048
 
-
+*** ATTENTION ***
+I have not programmed the server to be multithreaded. It runs on a sequential thread: first
+it receives the file from client 1, closes that connection, then opens another connection to
+send the file to client 2.
+For that reason, even when running in untrusted mode the server NEEDS to receive some file from
+client 1 before sending the serverdata file to client 2, otherwise it will not even start 
+listening at client 2's port.
 
 References used for this assignment:
 http://stackoverflow.com/questions/12123568/python-argparse-required-true-but-version-functionality

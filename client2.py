@@ -35,3 +35,23 @@ if not os.path.isfile(args.rsaKey):
 
 ## All input validated, we can start working!
 
+# First we receive the encrypted file from the server
+try:
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    sock.connect((args.serverIP, port))
+except:
+    print "Error connecting to the remote server. Is it running? Are the IP and port you provided correct?"
+    exit(1)
+file = open("client2data", "wb")
+while True:
+    data = sock.recv(1024) # We get 1kb at a time
+    if not data: # Until data stops arriving
+        print "Encrypted file arrived from server!"        
+        break
+    file.write(data)
+sock.close()
+
+##We got the file, now we have to start processing it.
+
+# First, extract the encrypted password and the signature
+
