@@ -1,11 +1,12 @@
-Network Security assignment 1
+Network Security Spring 2015 Assignment 1
+Programming problem
 Roberto Amorim - rja2139
 
 * The RSA keys were generated with OpenSSL:
 openssl genrsa -out privkey1.pem 2048
 openssl rsa -in privkey1.pem -pubout > pubkey1.pem
 
-* The scripts were developed and tested at CLIC machines, so there should be no issues
+* The scripts were developed and tested on the CLIC machines, so there should be no issues
 related to incompatibility or library versions
 
 * The test files (temp.data and serverdata) were generated using dd:

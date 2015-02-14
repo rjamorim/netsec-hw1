@@ -1,3 +1,7 @@
+# Network Security Spring 2015 Assignment 1
+# Programming problem
+# Roberto Amorim - rja2139
+
 import argparse
 import socket
 import os.path
@@ -48,16 +52,15 @@ if not os.path.isfile(args.pubKey):
     print "ERROR: Invalid file name for public RSA key"
     exit(1)
 
-#Here I validate the password (length only)
+# Here I validate the password (length only)
 if len(args.pwd) != 16:
     print "ERROR: Password length must be exactly 16"
     #print args.pwd
     exit(1)
 
-#= All input validated, we can start working! =#
+# All input validated, we can start working!
 
 # The encryption and signing routines follow
-
 ## A routine to encrypt the password
 def pwdcrypt(pwd, pub):
     try:
@@ -75,11 +78,11 @@ def pwdcrypt(pwd, pub):
 
 ## A routine to generate the signature
 def sign(message, priv):
-    #First we hash with SHA256
+    # First I hash with SHA256
     hashed = SHA256.new()
     hashed.update(message)
 
-    #Now we encrypt the HASH with RSA
+    # Now I encrypt the HASH with RSA
     try:
         with open(priv,'r') as f:
             keypriv = RSA.importKey(f.read())
@@ -89,7 +92,7 @@ def sign(message, priv):
     except:
         print "The file you provided seems to be an invalid RSA private key"
         exit(1)
-    #We verify if the key imported is the private key
+    # I verify if the key imported is the private key
     if not keypriv.has_private():
         print "You must provide a private RSA key for signing!"
         exit(1)
@@ -102,13 +105,13 @@ def pad(message):
     padding = AES.block_size - (len(message) % AES.block_size)
     if padding == 0:
         padding = AES.block_size
-    #Padding according to PKCS7:
+    # Padding according to PKCS7:
     pad = chr(padding)
     return message + (pad * padding)
 
 def encrypt(message, pwd, key_size=256):
     message = pad(message)
-    ## I create a random initialization vector the same length of the AES block size
+    # I create a random initialization vector the same length of the AES block size
     iv = Random.new().read(AES.block_size)
     cipher = AES.new(pwd, AES.MODE_CBC, iv)
     return iv + cipher.encrypt(message)
@@ -137,23 +140,22 @@ def encrypt_file(file_name, pwd, priv, pub):
 signature = encrypt_file(args.srcfile,args.pwd,args.privKey,args.pubKey)
 ciphertext = args.srcfile + ".enc"
 
-#= The file has been encrypted, the IV has been prepended and the password has =#
-#= been appended, now I can send everything to the server =#
+# The file has been encrypted, the password and signature have been prepared, now I can send everything to the server
 sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
-#First I send the RSA signature and the encrypted password
+## First I send the RSA signature and the encrypted password
 try:
     sock.connect((args.serverIP, port))
 except:
     print "Error connecting to the remote server. Is it running? Are the IP and port you provided correct?"
-    os.remove(ciphertext) #Some cleanup is adequate!
+    os.remove(ciphertext) # Some cleanup is adequate!
     exit(1)
 sock.send(signature)
 sock.close()
 print "Signature sent to server"
 
 sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-#Then I send the encrypted file
+## Then I send the encrypted file
 try:
     sock.connect((args.serverIP, port))
 except:
@@ -168,7 +170,7 @@ while True:
     sock.send(data)
 file.close()
 print "Encrypted file sent to server"
-os.remove(ciphertext) #Client 1 supposedly does not need the encrypted file anymore
+os.remove(ciphertext) # Client 1 does not need the encrypted file anymore
 sock.close()
 
 print "Client 1 completed all its tasks successfully. Exiting..."

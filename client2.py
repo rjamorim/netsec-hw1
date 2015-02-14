@@ -1,3 +1,7 @@
+# Network Security Spring 2015 Assignment 1
+# Programming problem
+# Roberto Amorim - rja2139
+
 import argparse
 import socket
 import os.path
@@ -63,7 +67,7 @@ except:
     exit(1)
 file = open("client2data.enc", "wb")
 while True:
-    data = sock.recv(1024) # We get 1kb at a time
+    data = sock.recv(1024) # Gets 1kb at a time
     if not data: # Until data stops arriving
         print "Encrypted file arrived from server"        
         break
@@ -71,7 +75,7 @@ while True:
 sock.close()
 file.close()
 
-#Got the file and signature, now I have to start processing both.
+# Got the file and signature, now I have to start processing both.
 ## First, extract the encrypted password
 cryptpwd = sign[:256]
 signature = sign[256:]

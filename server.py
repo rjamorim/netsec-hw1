@@ -1,3 +1,7 @@
+# Network Security Spring 2015 Assignment 1
+# Programming problem
+# Roberto Amorim - rja2139
+
 import argparse
 import socket
 import os.path
@@ -74,7 +78,7 @@ sock.close()
 file.close()
 
 # I now have the encrypted file and the signature, so I send both to client 2
-##Remember I have to send the actual file or a fake file depending on the server mode
+## Remember I have to send the actual file or a fake file depending on the server mode
 if args.mode == "t":
     sending = "ServerTempFile"
 else:
